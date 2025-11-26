@@ -11,6 +11,7 @@ on:
 env:
   PythonVersion: 3.8
   DockerImageName: todoapp
+  # ЗМІНА 1: Змінна HelmChartName залишається і буде використана
   HelmChartName: todoapp
 
 jobs:
@@ -62,7 +63,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: helm-artifacts
-          path: ./helm-charts
+          # КРИТИЧНЕ ВИПРАВЛЕННЯ 2: Шлях тепер вказує на сам чарт, а не на батьківську папку
+          path: ./helm-charts/${{ env.HelmChartName }}
 
   docker-ci:
     name: Build and Push Image
@@ -77,8 +79,12 @@ jobs:
         name: python-artifacts
         path: .
 
-    - name: Login to Docker Hub (CLI)
-      run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+    - name: Login to Docker Hub
+      # ЗМІНА 3: Повернення до рекомендованого екшену docker/login-action
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build and push
       uses: docker/build-push-action@v5
@@ -103,13 +109,16 @@ jobs:
       uses: azure/setup-helm@v4.2.0
 
     - name: Lint helm
-      run: helm lint ./todoapp/
+      # ЗМІНА 4: Використання змінної
+      run: helm lint ./${{ env.HelmChartName }}/
 
     - name: Template Helm
-      run: helm template todoapp ./todoapp/ -f ./todoapp/values.yaml
+      # ЗМІНА 4: Використання змінної
+      run: helm template ${{ env.HelmChartName }} ./${{ env.HelmChartName }}/ -f ./${{ env.HelmChartName }}/values.yaml
 
     - name: Package Helm
-      run: helm package ./todoapp
+      # ЗМІНА 4: Використання змінної
+      run: helm package ./${{ env.HelmChartName }}
 
     - name: Upload Helm Artifact
       uses: actions/upload-artifact@v4
